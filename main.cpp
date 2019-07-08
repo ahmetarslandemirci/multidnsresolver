@@ -8,29 +8,42 @@
 #include <stdlib.h> // malloc
 #define BUF_SIZE 65535
 #include <stdio.h>
+#include "queue.h"
+#include <pthread.h>
+
+
+
 
 int strfind(const char *p, const char c, size_t i = 0);
 void change(const unsigned char *host, unsigned char *h);
 char * resolve(char *url);
-
+void * worker(void *);
+void replace(char *l, char c, char t);
 void print_usage();
 
 int main(int argc, char **argv) {
-    int opt;
+    int opt, thread_count = 1;
     unsigned char flags = 0;
     char *url = NULL;
+    char *filename = NULL;
 
-    while((opt = getopt(argc, argv, "u:h")) != -1)
-    {
-        switch(opt)
-        {
+    while((opt = getopt(argc, argv, "u:f:t:h")) != -1) {
+        switch(opt) {
             case 'u':
-                flags |= 0x01;
+                flags = 1;
                 url = optarg;
                 break;
             case 'h':
                 print_usage();
                 exit(0);
+                break;
+            case 'f':
+                flags = 2;
+                filename = optarg;
+                break;
+            case 't':
+                sscanf(optarg, "%d", &thread_count);
+                if(thread_count < 1) thread_count = 1;
                 break;
             case ':':
                 printf("option needs a value\n");
@@ -40,8 +53,48 @@ int main(int argc, char **argv) {
                 break;
         }
     }
-    char *ip = resolve(url);
-    printf("IP: %s\n", ip);
+    if( flags == 1 ) {
+        char *ip = resolve(url);
+        printf("IP: %s\n", ip);
+    }
+    else if(flags == 2) {
+        printf("filename: %s\n", filename);
+    }
+    else {
+        printf("Unknown flag..\n");
+    }
+
+    theader* handle;
+    handle = tqueue.create();
+
+    FILE *f = fopen(filename, "r");
+    if(!f) {
+        printf("File can not readed.\n");
+        exit(0);
+    }
+    char *line = NULL;
+    size_t len = 0;
+    while( (getline(&line, &len, f) != -1)) {
+        //printf("- %s - %lu", line, strlen(line));
+        replace(line, '\n', '\0');;
+        size_t s = strlen(line);
+        char *url = (char *)malloc(s+1);
+        memset(url, 0, s+1);
+        strcpy(url, line);
+        printf("%s\n", url);
+        tqueue.push(handle, (void*)url);
+    }
+
+    char *p = (char *)malloc(sizeof(char));
+    pthread_t *threads = (pthread_t *)malloc( sizeof(pthread_t)*thread_count );
+    for(int i=0;i< thread_count; i++) {
+        sprintf(p, "%d", i);
+        pthread_create(&threads[i], NULL, worker, handle);
+    }
+
+    for(int i=0; i<thread_count;i++) {
+        pthread_join(threads[i], NULL);
+    }
 
     return 0;
 }
@@ -153,4 +206,26 @@ char * resolve(char *url) {
 
     close(sockd);
     return ip_addr;
+}
+
+void * worker(void *arg) {
+    theader *handle = (theader *)arg;
+    char *url = NULL;
+    while( handle != NULL ) {
+        url = (char *)tqueue.pop(handle);
+
+        if(url == NULL)
+            break;
+
+        printf("%s\n", resolve((char*)url) );
+        free(url);
+    }
+}
+
+void replace(char *l, char c, char t) {
+    for(int i=0; i<strlen(l);i++) {
+        if( l[i] == c) {
+            l[i] = t;
+        }
+    }
 }
