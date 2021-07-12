@@ -12,8 +12,6 @@
 #include <pthread.h>
 
 
-
-
 int strfind(const char *p, const char c, size_t i = 0);
 void change(const unsigned char *host, unsigned char *h);
 char * resolve(char *url);
@@ -53,23 +51,18 @@ int main(int argc, char **argv) {
                 break;
         }
     }
-    if( flags == 1 ) {
+    if (flags == 1) {
         char *ip = resolve(url);
-        printf("IP: %s\n", ip);
     }
-    else if(flags == 2) {
+    else if (flags == 2) {
         printf("filename: %s\n", filename);
-    }
-    else {
-        printf("Unknown flag..\n");
-    }
 
     theader* handle;
     handle = tqueue.create();
 
     FILE *f = fopen(filename, "r");
     if(!f) {
-        printf("File can not readed.\n");
+        printf("File can not read.\n");
         exit(0);
     }
     char *line = NULL;
@@ -81,7 +74,6 @@ int main(int argc, char **argv) {
         char *url = (char *)malloc(s+1);
         memset(url, 0, s+1);
         strcpy(url, line);
-        printf("%s\n", url);
         tqueue.push(handle, (void*)url);
     }
 
@@ -95,7 +87,7 @@ int main(int argc, char **argv) {
     for(int i=0; i<thread_count;i++) {
         pthread_join(threads[i], NULL);
     }
-
+	}
     return 0;
 }
 
@@ -183,9 +175,25 @@ char * resolve(char *url) {
     }
     memset(buf, 0, BUF_SIZE);
     int i = sizeof(dest), recv_size = 0;
-    if( (recv_size = recvfrom (sockd,(char*)&buf , BUF_SIZE, 0 , (struct sockaddr*)&dest , (socklen_t*)&i )) < 0) {
+    if( (recv_size = recvfrom (sockd, (char *) &buf , BUF_SIZE, 0 , (struct sockaddr*)&dest , (socklen_t*)&i )) < 0) {
         std::cout << "recv error" << std::endl;
+	exit(0);
     }
+
+    void *limit = buf + recv_size;
+    dns_record *data =(dns_record *) (buf + sizeof(dns_header) + (host_size + 1 + 4));
+    /*printf("Received Length: %d\n", recv_size);
+    printf("Header Length: %ld\n", sizeof(dns_header));
+    printf("Record Length: %ld\n", sizeof(dns_record));
+    */
+    printf("%s\t", url);
+    while (data < limit) {
+        char *ip_addr2 = inet_ntoa(data->addr);
+	printf("%s ", ip_addr2);
+	data++;
+    }
+    printf("\n");
+/*
     // get ip from last 4 byte
     in_addr ip;
     uint32_t p = 0;
@@ -196,16 +204,11 @@ char * resolve(char *url) {
     ip.s_addr = htonl(ip.s_addr);
 
     char *ip_addr = inet_ntoa(ip);
-
+*/
     free(host);
-// todo: parse response
-//    struct dns_header *res_header;
-//    res_header = (struct dns_header *) &buf[0];
-//    int ans_count = ntohs(res_header->ans_count);
-//    printf("%d", ans_count);
 
     close(sockd);
-    return ip_addr;
+    return NULL;
 }
 
 void * worker(void *arg) {
@@ -217,7 +220,7 @@ void * worker(void *arg) {
         if(url == NULL)
             break;
 
-        printf("%s\n", resolve((char*)url) );
+        resolve((char*)url);
         free(url);
     }
 }

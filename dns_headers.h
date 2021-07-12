@@ -1,5 +1,7 @@
 #ifndef UNTITLED_DNS_HEADERS_H
 #define UNTITLED_DNS_HEADERS_H
+#include <inttypes.h>
+#include <netinet/in.h> // sockaddr_in
 
 struct dns_header {
     unsigned short id; // identity
@@ -45,5 +47,14 @@ typedef struct {
     unsigned char *name;
     struct question ques;
 } query;
+
+
+typedef struct {
+  uint16_t type;
+  uint16_t _class;
+  uint32_t ttl;
+  uint16_t length;
+  in_addr addr;
+} dns_record;
 
 #endif //UNTITLED_DNS_HEADERS_H
